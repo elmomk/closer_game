@@ -1,0 +1,8 @@
+# secrets / local environment — never commit
+.env
+.env.*
+
+# tooling / build output
+.wrangler/
+node_modules/
+dist/

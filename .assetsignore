@@ -2,6 +2,8 @@
 .git/**
 .gitignore
 .assetsignore
+.env
+.env.*
 .wrangler
 wrangler.jsonc
 wrangler.toml
