@@ -49,50 +49,61 @@
       </div>
       <div class="counter" id="counter"></div>
     </div>
-    <div class="scorebar" id="scorebar"></div>
-    <div class="meter" id="meter">
-      <div class="meter-head">
-        <span class="meter-level" id="meterLevel">Strangers</span>
-        <span class="meter-streak" id="meterStreak"></span>
+    <!-- Heroes & Chickens: pick one of two questions -->
+    <div class="hidden" id="choicePanel">
+      <div class="choice-header">
+        <span class="choice-cap">Pick a question to answer</span>
+        <button class="langtoggle" id="choiceLangBtn" aria-expanded="false">中文翻譯</button>
       </div>
-      <div class="meter-track"><i id="meterFill"></i></div>
-      <div class="meter-rungs" id="meterRungs"></div>
+      <div class="choice-cards" id="choiceCards"></div>
     </div>
-    <div class="qnum" id="qnum"></div>
-    <h2 class="question" id="qtext"></h2>
-    <button class="langtoggle" id="langBtn" aria-expanded="false">中文翻譯</button>
-    <div class="qzh" id="qzh"><div class="qzh-inner" id="qzhText" lang="zh-Hant"></div></div>
-    <div class="order">
-      <div class="cap" id="orderCap">Answer in this order</div>
-      <div class="seq" id="seq"></div>
-      <div class="hint" id="orderHint">Chickening out? Tap your name — you'll draw a dare instead.</div>
-    </div>
-    <div class="dare hidden" id="darePanel">
-      <div class="cap">Pass · <span class="who-passed" id="dareWho"></span> ducked the question</div>
-      <!-- phase 1: who makes the dare? -->
-      <div id="dareChoice">
-        <div class="text" id="dareChoiceText">A dare instead, then. Who makes it up?</div>
-        <div class="row">
-          <button class="btn" id="dareGroup">The group makes one up</button>
-          <button class="btn ghost" id="dareApp">Let the app pick</button>
-          <button class="btn ghost sm" id="dareCancel">Never mind, I'll answer</button>
+    <!-- Normal play content -->
+    <div id="playMain">
+      <div class="scorebar" id="scorebar"></div>
+      <div class="meter" id="meter">
+        <div class="meter-head">
+          <span class="meter-level" id="meterLevel">Strangers</span>
+          <span class="meter-streak" id="meterStreak"></span>
+        </div>
+        <div class="meter-track"><i id="meterFill"></i></div>
+        <div class="meter-rungs" id="meterRungs"></div>
+      </div>
+      <div class="qnum" id="qnum"></div>
+      <h2 class="question" id="qtext"></h2>
+      <button class="langtoggle" id="langBtn" aria-expanded="false">中文翻譯</button>
+      <div class="qzh" id="qzh"><div class="qzh-inner" id="qzhText" lang="zh-Hant"></div></div>
+      <div class="order">
+        <div class="cap" id="orderCap">Answer in this order</div>
+        <div class="seq" id="seq"></div>
+        <div class="hint" id="orderHint">Chickening out? Tap your name — you'll draw a dare instead.</div>
+      </div>
+      <div class="dare hidden" id="darePanel">
+        <div class="cap">Pass · <span class="who-passed" id="dareWho"></span> ducked the question</div>
+        <!-- phase 1: who makes the dare? -->
+        <div id="dareChoice">
+          <div class="text" id="dareChoiceText">A dare instead, then. Who makes it up?</div>
+          <div class="row">
+            <button class="btn" id="dareGroup">The group makes one up</button>
+            <button class="btn ghost" id="dareApp">Let the app pick</button>
+            <button class="btn ghost sm" id="dareCancel">Never mind, I'll answer</button>
+          </div>
+        </div>
+        <!-- phase 2: the dare itself -->
+        <div id="dareDo" class="hidden">
+          <div class="text" id="dareText"></div>
+          <div class="row">
+            <button class="btn" id="dareDid">Did the dare ✓</button>
+            <button class="btn danger" id="dareFail">Chickened out — take a strike ✗</button>
+            <button class="btn ghost sm" id="dareDeck">Can't think of one? Draw from the deck</button>
+          </div>
         </div>
       </div>
-      <!-- phase 2: the dare itself -->
-      <div id="dareDo" class="hidden">
-        <div class="text" id="dareText"></div>
-        <div class="row">
-          <button class="btn" id="dareDid">Did the dare ✓</button>
-          <button class="btn danger" id="dareFail">Chickened out — take a strike ✗</button>
-          <button class="btn ghost sm" id="dareDeck">Can't think of one? Draw from the deck</button>
-        </div>
+      <p class="listener-note hidden" id="listenerNote">🪞 Before the next card — each person, reflect back one thing you heard.</p>
+      <div class="controls">
+        <button class="btn" id="nextBtn">Everyone's answered — next card</button>
+        <button class="btn ghost sm" id="reshuffleBtn">Reshuffle order</button>
+        <button class="btn ghost sm" id="endBtn">End session</button>
       </div>
-    </div>
-    <p class="listener-note hidden" id="listenerNote">🪞 Before the next card — each person, reflect back one thing you heard.</p>
-    <div class="controls">
-      <button class="btn" id="nextBtn">Everyone's answered — next card</button>
-      <button class="btn ghost sm" id="reshuffleBtn">Reshuffle order</button>
-      <button class="btn ghost sm" id="endBtn">End session</button>
     </div>
     <div class="progress"><div class="bar"><i id="barFill"></i></div></div>
   </section>

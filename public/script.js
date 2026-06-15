@@ -56,6 +56,7 @@ const DEFAULT_SETTINGS = {
   showZhByDefault: false,
   listenerBeat: false,
   gentlePrompts: false,
+  dualQuestion: false,
 };
 const PRESETS = {
   classic: {},
@@ -86,6 +87,9 @@ const PRESETS = {
     bonusEnabled: false,
     draw: { warm: 4, deep: 4, deepest: 4 },
   },
+  heroes: {
+    dualQuestion: true,
+  },
 };
 const MODE_LIST = [
   { id: "classic", name: "Classic" },
@@ -93,6 +97,7 @@ const MODE_LIST = [
   { id: "party", name: "Party" },
   { id: "deepdive", name: "Deep Dive" },
   { id: "free", name: "Free Browse" },
+  { id: "heroes", name: "Heroes & Chickens" },
 ];
 const SETTINGS_SCHEMA = [
   {
@@ -661,8 +666,56 @@ function dareFail() {
   renderOrder();
 }
 
+function renderChoicePanel() {
+  const c = cards[pos];
+  const ti = tierIndex(c.tier);
+  setTierTheme(ti);
+  $("tierName").textContent = TIER_NAMES[ti];
+  document.querySelectorAll(".dot").forEach((d, i) => d.classList.toggle("on", i <= ti));
+  $("counter").textContent = `${pos + 1} / ${cards.length}`;
+  $("barFill").style.transform = `scaleX(${(pos + 1) / cards.length})`;
+
+  const showZh = settings.showZhByDefault;
+  const lb = $("choiceLangBtn");
+  lb.classList.toggle("on", showZh);
+  lb.textContent = showZh ? "隱藏中文" : "中文翻譯";
+  lb.setAttribute("aria-expanded", showZh ? "true" : "false");
+
+  const cardsEl = $("choiceCards");
+  cardsEl.innerHTML = "";
+  [c.q, c.altQ].forEach((q, idx) => {
+    const div = document.createElement("div");
+    div.className = "choice-card";
+    div.innerHTML = `<div class="choice-q-text">${q}</div><div class="choice-q-zh${showZh ? " show" : ""}"><div class="choice-q-zh-inner">${ZH[q] || "（暫無翻譯）"}</div></div>`;
+    div.onclick = () => {
+      if (idx === 1) c.q = c.altQ;
+      c._picked = true;
+      $("choicePanel").classList.add("hidden");
+      $("playMain").classList.remove("hidden");
+      renderCard();
+    };
+    cardsEl.appendChild(div);
+    if (idx === 0) {
+      const sep = document.createElement("div");
+      sep.className = "choice-or";
+      sep.textContent = "or";
+      cardsEl.appendChild(sep);
+    }
+  });
+
+  $("choicePanel").classList.remove("hidden");
+  $("playMain").classList.add("hidden");
+  show("play");
+}
+
 function renderCard() {
   const c = cards[pos];
+  if (settings.dualQuestion && c.altQ && !c._picked) {
+    renderChoicePanel();
+    return;
+  }
+  $("choicePanel").classList.add("hidden");
+  $("playMain").classList.remove("hidden");
   const ti = tierIndex(c.tier);
   if (!c.bonus && !state.used[c.tier].includes(c.q)) {
     state.used[c.tier].push(c.q);
@@ -780,6 +833,13 @@ function buildDeck() {
     d.push(...drawTier("deepest", settings.draw.deepest).map((q) => ({ q, tier: "deepest" })));
   if (d.length === 0)
     d.push(...drawTier("warm", 3).map((q) => ({ q, tier: "warm" })));
+  if (settings.dualQuestion) {
+    d.forEach((card) => {
+      let pool = BANK[card.tier].filter((q) => q !== card.q && !state.used[card.tier].includes(q));
+      if (pool.length === 0) pool = BANK[card.tier].filter((q) => q !== card.q);
+      card.altQ = pool.length > 0 ? shuffle(pool)[0] : null;
+    });
+  }
   return d;
 }
 
@@ -1094,6 +1154,14 @@ $("langBtn").onclick = () => {
   lb.classList.toggle("on", open);
   lb.textContent = open ? "隱藏中文" : "中文翻譯";
   lb.setAttribute("aria-expanded", open ? "true" : "false");
+};
+$("choiceLangBtn").onclick = () => {
+  const lb = $("choiceLangBtn");
+  const open = lb.getAttribute("aria-expanded") !== "true";
+  lb.classList.toggle("on", open);
+  lb.textContent = open ? "隱藏中文" : "中文翻譯";
+  lb.setAttribute("aria-expanded", open ? "true" : "false");
+  document.querySelectorAll(".choice-q-zh").forEach((el) => el.classList.toggle("show", open));
 };
 $("seamBtn").onclick = renderCard;
 $("newSessionBtn").onclick = startSession;

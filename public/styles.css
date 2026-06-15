@@ -216,3 +216,22 @@
   .pair + .pair{border-top:1px solid var(--line)}
   .listener-note{border:1px solid var(--accent);border-radius:12px;background:rgba(0,0,0,.22);
     padding:12px 16px;margin-bottom:16px;font-size:.96rem;color:var(--ink)}
+
+  /* Heroes & Chickens — question choice panel */
+  #playMain{display:flex;flex-direction:column}
+  .choice-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:18px}
+  .choice-cap{font-family:'Fraunces',serif;font-size:.78rem;letter-spacing:.12em;text-transform:uppercase;color:var(--muted)}
+  .choice-cards{display:flex;flex-direction:column;gap:0}
+  .choice-card{border:1px solid var(--line);border-radius:16px;padding:20px 22px;cursor:pointer;
+    transition:border-color .2s ease,background .2s ease,transform .12s var(--ease-out)}
+  @media (hover:hover) and (pointer:fine){.choice-card:hover{border-color:var(--accent);background:rgba(255,255,255,.03)}}
+  .choice-card:active{transform:scale(.99)}
+  .choice-q-text{font-family:'Fraunces',serif;font-weight:400;font-size:clamp(1.25rem,3.8vw,2rem);line-height:1.28;letter-spacing:-.015em}
+  .choice-q-zh{display:grid;grid-template-rows:0fr;opacity:0;
+    transition:grid-template-rows .4s var(--ease-out),opacity .3s ease,margin-top .3s ease}
+  .choice-q-zh.show{grid-template-rows:1fr;opacity:1;margin-top:14px}
+  .choice-q-zh-inner{min-height:0;overflow:hidden;
+    font-family:'Noto Serif TC','Fraunces',serif;font-size:clamp(1.1rem,3.2vw,1.7rem);
+    line-height:1.5;color:var(--ink);padding-left:14px;border-left:2px solid var(--accent)}
+  .choice-or{text-align:center;color:var(--muted);font-family:'Fraunces',serif;font-size:.88rem;
+    letter-spacing:.06em;opacity:.5;padding:12px 0}
