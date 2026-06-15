@@ -63,6 +63,18 @@ const blank = {
   sessions: 0,
   people: DEFAULT_PEOPLE.slice(),
 };
+/* Storage shim: use the host-provided window.storage if present, else localStorage. */
+if (!window.storage) {
+  window.storage = {
+    async get(k) {
+      const v = localStorage.getItem(k);
+      return v == null ? null : { value: v };
+    },
+    async set(k, v) {
+      localStorage.setItem(k, v);
+    },
+  };
+}
 async function loadState() {
   try {
     const r = await window.storage.get(KEY);
@@ -233,7 +245,8 @@ function renderMeter(broke) {
       ? `${streak} climbed · ${Math.max(0, WIN_AT - streak)} to Unbreakable · `
       : "";
   $("meterStreak").textContent = climb + fuse;
-  $("meterFill").style.width = `${Math.min(100, (streak / WIN_AT) * 100)}%`;
+  const fillPct = Math.min(100, (streak / WIN_AT) * 100);
+  $("meterFill").style.clipPath = `inset(0 ${100 - fillPct}% 0 0)`;
   const rungs = $("meterRungs");
   rungs.innerHTML = "";
   LADDER.forEach((l) => {
@@ -389,7 +402,7 @@ function renderCard() {
   // reset + load Mandarin translation for this card (English stays primary)
   const zh = $("qzh"),
     lb = $("langBtn");
-  zh.textContent = ZH[c.q] || "（暫無翻譯）";
+  $("qzhText").textContent = ZH[c.q] || "（暫無翻譯）";
   zh.classList.remove("show");
   lb.classList.remove("on");
   lb.textContent = "中文翻譯";
@@ -403,7 +416,7 @@ function renderCard() {
   activePasser = null;
   $("dareChoice").classList.remove("hidden");
   $("dareDo").classList.add("hidden");
-  $("barFill").style.width = `${((pos + 1) / cards.length) * 100}%`;
+  $("barFill").style.transform = `scaleX(${(pos + 1) / cards.length})`;
   show("play");
 }
 
@@ -499,8 +512,9 @@ function renderBoard() {
     .sort((a, b) => b[1].strikes - a[1].strikes || a[1].dares - b[1].dares);
   const maxStrikes = Math.max(...entries.map(([, v]) => v.strikes));
   board.innerHTML = "";
-  ranked.forEach(([n, v]) => {
+  ranked.forEach(([n, v], i) => {
     const li = document.createElement("li");
+    li.style.animationDelay = i * 50 + "ms";
     const clean = v.passes === 0;
     const king = v.strikes === maxStrikes && maxStrikes > 0;
     if (king) li.className = "king";
