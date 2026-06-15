@@ -744,12 +744,12 @@ function renderCard() {
   lb.classList.toggle("on", showZh);
   lb.textContent = showZh ? "隱藏中文" : "中文翻譯";
   lb.setAttribute("aria-expanded", showZh ? "true" : "false");
+  cardPassers = [];
+  lastPassUndoable = false;
   newOrder();
   renderScorebar();
   renderMeter(false);
   syncUIVisibility();
-  cardPassers = [];
-  lastPassUndoable = false;
   reflectPending = settings.listenerBeat && !c.bonus;
   $("nextBtn").textContent = "Everyone's answered — next card";
   $("listenerNote").classList.add("hidden");
