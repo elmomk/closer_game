@@ -420,6 +420,7 @@ function show(v) {
   ["setup", "play", "seam", "end"].forEach((x) =>
     $(x).classList.toggle("hidden", x !== v),
   );
+  $("gearBtn").disabled = v === "play" || v === "seam";
 }
 function inPlay() {
   return !$("play").classList.contains("hidden");

@@ -154,6 +154,7 @@
     transition:color .2s ease,border-color .2s ease,transform .12s var(--ease-out)}
   @media (hover:hover) and (pointer:fine){.gear:hover{color:var(--ink);border-color:var(--accent)}}
   .gear:active{transform:scale(.92)}
+  .gear:disabled{opacity:.35;cursor:not-allowed;pointer-events:none}
 
   .drawer-backdrop{position:fixed;inset:0;background:rgba(8,12,16,.55);opacity:0;pointer-events:none;
     transition:opacity .3s var(--ease-out);z-index:60}
