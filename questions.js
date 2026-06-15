@@ -300,6 +300,11 @@ const DARES = {
     "Share the most-used emoji in your messages and what it really means.",
     "Swap seats with the person across from you and answer as if you were them.",
     "Do your best villain laugh, and commit to it.",
+    "Narrate the next 20 seconds of the room like a nature documentary host.",
+    "Sing your answer to the next question, opera-style, no matter how short.",
+    "Do your best impression of a celebrity reading the back of a cereal box.",
+    "Strike a dramatic superhero pose and hold it until your next turn.",
+    "Talk like a 1950s radio announcer until the next card is drawn.",
   ],
   deep: [
     "Answer the question you just passed — but the person on your right asks it again in their own words.",
@@ -314,6 +319,10 @@ const DARES = {
     "Answer the next THREE questions first, no passing, before anyone else.",
     "Reveal the screen time number you're least proud of and what app did it.",
     "Tell everyone the compliment you most want to be true about yourself.",
+    "Deliver the next answer as an over-the-top movie-trailer voiceover.",
+    "Accept an Oscar for 'Best Performance at This Gathering' with a tearful speech.",
+    "Read the next question as if it's breaking news on live TV.",
+    "Give a dramatic 30-second TED talk on the most trivial opinion you hold.",
   ],
   deepest: [
     "You can skip the answer — but tell the circle the real reason it's hard to say out loud.",
@@ -328,3 +337,18 @@ const DARES = {
     "Let the person to your right say one true thing about you — and just receive it.",
   ],
 };
+
+/* Heaviest deepest prompts — skipped when gentle prompts are on. */
+const INTENSE_DEEPEST = [
+  "What's true about you that you're a little afraid the people here would think differently of you for knowing?",
+  "If tonight were the last time you saw everyone here, what would you want each of them to know?",
+  "What's a wound from your past that still shapes how you need to be loved?",
+  "Go around: tell the person on your left one true thing you admire in them.",
+  "What do you most want to be forgiven for?",
+  "Go around: name a strength you see in the person to your right that you suspect they undervalue.",
+  "What would you want said about you, by someone who really knew you, when you're gone?",
+  "What's the hardest thing you're carrying right now that you came here not planning to mention?",
+  "Go around: tell someone here about a moment they were there for you that they may not even remember.",
+  "When were you most afraid of losing someone in this room?",
+  "Go around: finish the sentence to the group — 'something I've never thanked you for is…'",
+];

@@ -1,13 +1,6 @@
-let darePool = { warm: [], deep: [], deepest: [] };
-function dareFor(tier) {
-  if (!darePool[tier] || darePool[tier].length === 0)
-    darePool[tier] = shuffle(DARES[tier]);
-  return darePool[tier].pop();
-}
-
-/* ============ Shared goal: the Closeness ladder ============ */
-/* Streak = consecutive cards answered by the WHOLE circle with zero passes. Any pass resets it to 0. */
-const LADDER = [
+/* ============ Settings model ============ */
+/* The whole ruleset lives in one object so it can change at any time — even mid-game. */
+const DEFAULT_LADDER = [
   { at: 0, name: "Strangers" },
   { at: 2, name: "Acquaintances" },
   { at: 4, name: "Friends" }, // unlocks a bonus card
@@ -15,31 +8,6 @@ const LADDER = [
   { at: 8, name: "Inner Circle" },
   { at: 11, name: "Unbreakable" }, // the win
 ];
-const WIN_AT = 11;
-const UNLOCK_LEVELS = { 4: true, 6: true }; // streak thresholds that inject a bonus card
-// Bonus connection cards — only ever reached by collective courage.
-const BONUS = [
-  "Each person: tell the group one thing this circle gives you that you get nowhere else.",
-  "Go around: say the name of someone here and finish — 'I'm closer to you than I let on because…'",
-  "As a group, decide: who here is the bravest tonight, and tell them why.",
-  "Each person: name one moment from tonight you'll still remember a year from now.",
-  "Go around: tell the person across from you something you hope stays true about them.",
-];
-let bonusPool = [];
-function bonusCard() {
-  if (bonusPool.length === 0) bonusPool = shuffle(BONUS);
-  return bonusPool.pop();
-}
-function levelFor(streak) {
-  let lv = LADDER[0];
-  for (const l of LADDER) {
-    if (streak >= l.at) lv = l;
-  }
-  return lv;
-}
-
-/* ============ Per-session draw: keep totals near the original 12-card arc, all answered round-robin. */
-const DRAW = { warm: 5, deep: 4, deepest: 3 }; // 12 cards/session
 const TIER_NAMES = ["Warm-up", "Deepening", "Closer still"];
 const SEAMS = [
   null,
@@ -54,14 +22,228 @@ const SEAMS = [
     body: "These are tender. Some are for the whole circle, some ask you to turn to one person. Slow all the way down. The listening matters as much as the answering.",
   },
 ];
+// Bonus connection cards — only ever reached by collective courage.
+const BONUS = [
+  "Each person: tell the group one thing this circle gives you that you get nowhere else.",
+  "Go around: say the name of someone here and finish — 'I'm closer to you than I let on because…'",
+  "As a group, decide: who here is the bravest tonight, and tell them why.",
+  "Each person: name one moment from tonight you'll still remember a year from now.",
+  "Go around: tell the person across from you something you hope stays true about them.",
+];
+const DEFAULT_PEOPLE = [];
+
+/* The "Classic" ruleset — every other mode is a partial override of this. */
+const DEFAULT_SETTINGS = {
+  mode: "classic",
+  // Passing & penalties
+  passMode: "shared-shrinking", // shared-shrinking | shared-fixed | free | none
+  passBudgetSeq: [3, 2, 1, 0],
+  passBudgetFixed: 3,
+  daresEnabled: true,
+  shaming: true,
+  positiveAward: false,
+  // Deck shape & length
+  tiers: { warm: true, deep: true, deepest: true },
+  draw: { warm: 5, deep: 4, deepest: 3 },
+  bonusEnabled: true,
+  // Win & meter
+  meterEnabled: true,
+  winAt: 11,
+  unlockLevels: { 4: true, 6: true },
+  meterResetOnBudgetOut: true,
+  // Format & language
+  format: "round-robin", // round-robin | pairs-deepest | pairs-all | single
+  showZhByDefault: false,
+  listenerBeat: false,
+  gentlePrompts: false,
+};
+const PRESETS = {
+  classic: {},
+  gentle: {
+    passMode: "free",
+    daresEnabled: false,
+    shaming: false,
+    positiveAward: true,
+    listenerBeat: true,
+    meterResetOnBudgetOut: false,
+    gentlePrompts: true,
+  },
+  party: {
+    draw: { warm: 7, deep: 3, deepest: 1 },
+    winAt: 7,
+    unlockLevels: { 3: true, 5: true },
+  },
+  deepdive: {
+    draw: { warm: 1, deep: 4, deepest: 5 },
+    format: "pairs-deepest",
+    winAt: 8,
+  },
+  free: {
+    meterEnabled: false,
+    passMode: "free",
+    daresEnabled: false,
+    shaming: false,
+    bonusEnabled: false,
+    draw: { warm: 4, deep: 4, deepest: 4 },
+  },
+};
+const MODE_LIST = [
+  { id: "classic", name: "Classic" },
+  { id: "gentle", name: "Gentle" },
+  { id: "party", name: "Party" },
+  { id: "deepdive", name: "Deep Dive" },
+  { id: "free", name: "Free Browse" },
+];
+const SETTINGS_SCHEMA = [
+  {
+    title: "Passing & penalties",
+    rows: [
+      {
+        key: "passMode",
+        label: "Passing",
+        type: "seg",
+        options: [
+          ["shared-shrinking", "Shrinking"],
+          ["shared-fixed", "Fixed"],
+          ["free", "Free"],
+          ["none", "Off"],
+        ],
+      },
+      { key: "daresEnabled", label: "Dares on pass", type: "toggle" },
+      { key: "shaming", label: "Strikes & chicken crown", type: "toggle" },
+      { key: "positiveAward", label: "Positive award", type: "toggle" },
+    ],
+  },
+  {
+    title: "Deck shape & length",
+    rows: [
+      { key: "tiers.warm", label: "Warm-up tier", type: "toggle" },
+      { key: "tiers.deep", label: "Deepening tier", type: "toggle" },
+      { key: "tiers.deepest", label: "Deepest tier", type: "toggle" },
+      { key: "draw.warm", label: "Warm-up cards", type: "stepper", min: 0, max: 15 },
+      { key: "draw.deep", label: "Deepening cards", type: "stepper", min: 0, max: 15 },
+      { key: "draw.deepest", label: "Deepest cards", type: "stepper", min: 0, max: 15 },
+      { key: "bonusEnabled", label: "Bonus cards", type: "toggle" },
+    ],
+  },
+  {
+    title: "Win & meter",
+    rows: [
+      { key: "meterEnabled", label: "Closeness meter", type: "toggle" },
+      { key: "winAt", label: "Win at (cards)", type: "stepper", min: 3, max: 30 },
+      {
+        key: "meterResetOnBudgetOut",
+        label: "Meter wipes on budget-out",
+        type: "toggle",
+      },
+    ],
+  },
+  {
+    title: "Format & language",
+    rows: [
+      {
+        key: "format",
+        label: "Answer format",
+        type: "seg",
+        options: [
+          ["round-robin", "Circle"],
+          ["pairs-deepest", "Pairs (deep)"],
+          ["pairs-all", "Pairs"],
+          ["single", "Solo"],
+        ],
+      },
+      { key: "listenerBeat", label: "Reflect-back step", type: "toggle" },
+      { key: "gentlePrompts", label: "Gentler prompts", type: "toggle" },
+      { key: "showZhByDefault", label: "Show 中文 by default", type: "toggle" },
+    ],
+  },
+];
+
+function deepClone(o) {
+  return JSON.parse(JSON.stringify(o));
+}
+function mergeSettings(base, over) {
+  const out = deepClone(base);
+  if (!over) return out;
+  for (const k in over) {
+    if (k === "tiers" || k === "draw")
+      out[k] = Object.assign({}, out[k], over[k]);
+    else out[k] = over[k];
+  }
+  return out;
+}
+function settingsForMode(name) {
+  return mergeSettings(
+    DEFAULT_SETTINGS,
+    Object.assign({}, PRESETS[name] || {}, { mode: name }),
+  );
+}
+function getKey(o, k) {
+  return k.includes(".") ? k.split(".").reduce((a, p) => a[p], o) : o[k];
+}
+function setKey(o, k, v) {
+  if (k.includes(".")) {
+    const ps = k.split(".");
+    const last = ps.pop();
+    ps.reduce((a, p) => a[p], o)[last] = v;
+  } else o[k] = v;
+}
+// The ladder reshapes to the win target; the classic 11 keeps its hand-tuned rungs.
+function buildLadder(winAt) {
+  const names = [
+    "Strangers",
+    "Acquaintances",
+    "Friends",
+    "Confidants",
+    "Inner Circle",
+    "Unbreakable",
+  ];
+  const n = names.length;
+  return names.map((name, i) => ({
+    at: i === 0 ? 0 : i === n - 1 ? winAt : Math.round((winAt * i) / (n - 1)),
+    name,
+  }));
+}
+function getLadder() {
+  return settings.winAt === 11 ? DEFAULT_LADDER : buildLadder(settings.winAt);
+}
+function topLevelName() {
+  const l = getLadder();
+  return l[l.length - 1].name;
+}
+let settings = settingsForMode("classic");
+
+/* ============ Dares ============ */
+let darePool = { warm: [], deep: [], deepest: [] };
+function dareFor(tier) {
+  if (!darePool[tier] || darePool[tier].length === 0)
+    darePool[tier] = shuffle(DARES[tier]);
+  return darePool[tier].pop();
+}
+
+/* ============ Bonus + level lookup ============ */
+let bonusPool = [];
+function bonusCard() {
+  if (bonusPool.length === 0) bonusPool = shuffle(BONUS);
+  return bonusPool.pop();
+}
+function levelFor(streak) {
+  const ladder = getLadder();
+  let lv = ladder[0];
+  for (const l of ladder) {
+    if (streak >= l.at) lv = l;
+  }
+  return lv;
+}
 
 /* ============ Persistence ============ */
-const KEY = "closer-group-v1";
-const DEFAULT_PEOPLE = [];
+const KEY = "closer-group-v2";
+const OLD_KEY = "closer-group-v1";
 const blank = {
   used: { warm: [], deep: [], deepest: [] },
   sessions: 0,
   people: DEFAULT_PEOPLE.slice(),
+  settings: settingsForMode("classic"),
 };
 /* Storage shim: use the host-provided window.storage if present, else localStorage. */
 if (!window.storage) {
@@ -80,14 +262,27 @@ async function loadState() {
     const r = await window.storage.get(KEY);
     if (r && r.value) return JSON.parse(r.value);
   } catch (e) {}
-  return JSON.parse(JSON.stringify(blank));
+  // migrate from v1 (no settings) → v2
+  try {
+    const r = await window.storage.get(OLD_KEY);
+    if (r && r.value) {
+      const old = JSON.parse(r.value);
+      return {
+        used: old.used || deepClone(blank.used),
+        sessions: old.sessions || 0,
+        people: old.people || DEFAULT_PEOPLE.slice(),
+        settings: settingsForMode("classic"),
+      };
+    }
+  } catch (e) {}
+  return deepClone(blank);
 }
 async function saveState() {
   try {
     await window.storage.set(KEY, JSON.stringify(state));
   } catch (e) {}
 }
-let state = JSON.parse(JSON.stringify(blank));
+let state = deepClone(blank);
 
 /* ============ Helpers ============ */
 const $ = (id) => document.getElementById(id);
@@ -104,13 +299,16 @@ function remaining(tier) {
 }
 function drawTier(tier, n) {
   let pool = remaining(tier);
+  if (tier === "deepest" && settings.gentlePrompts && typeof INTENSE_DEEPEST !== "undefined")
+    pool = pool.filter((q) => !INTENSE_DEEPEST.includes(q));
   if (pool.length < n) {
     // exhausted: recycle this tier, keep drawing fresh from the reset pool
     state.used[tier] = [];
     pool = BANK[tier].slice();
+    if (tier === "deepest" && settings.gentlePrompts && typeof INTENSE_DEEPEST !== "undefined")
+      pool = pool.filter((q) => !INTENSE_DEEPEST.includes(q));
   }
   // Note: cards are NOT marked used here — only when actually shown (see renderCard).
-  // This way, stopping a session early returns the unseen cards to the pool.
   return shuffle(pool).slice(0, n);
 }
 function totalRemaining() {
@@ -122,31 +320,48 @@ function totalRemaining() {
 }
 
 /* ============ Session state ============ */
-let cards = []; // [{q,tier}]
+let cards = []; // [{q,tier,bonus?}]
 let pos = 0;
 let order = []; // names in answer order for current card
 let score = {}; // per name: {strikes, dares, passes} for the current session
 let activePasser = null;
 let streak = 0; // cards climbed (continues through passes; only a budget-out resets it)
 let bestStreak = 0; // high-water mark this session
-let curLevel = 0; // index into LADDER reached
 let cardPassers = []; // names who passed on the CURRENT card (for accurate cancel)
 let wonThisSession = false;
-// Shared pass budget: the whole circle shares it. Refills smaller after each reset: 3 → 2 → 1 → 0.
-const BUDGET_SEQ = [3, 2, 1, 0];
-let budgetTier = 0; // index into BUDGET_SEQ
-let passBudget = BUDGET_SEQ[0]; // passes remaining before the meter resets
+let budgetTier = 0; // index into passBudgetSeq
+let passBudget = 3; // passes remaining before the meter resets (shared modes)
 let resets = 0; // how many times the meter has been wiped this session
-let lastPassUndoable = false; // whether the most recent pass can be cancelled (didn't trigger a reset)
+let lastPassUndoable = false; // whether the most recent pass can be cancelled
+let reflectPending = false; // listener-beat: a reflect step is queued before advancing
 function resetScore() {
   score = {};
   state.people.forEach((n) => (score[n] = { strikes: 0, dares: 0, passes: 0 }));
 }
+function initBudget() {
+  budgetTier = 0;
+  passBudget =
+    settings.passMode === "shared-shrinking"
+      ? settings.passBudgetSeq[0]
+      : settings.passMode === "shared-fixed"
+        ? settings.passBudgetFixed
+        : 0;
+}
+function refillBudget() {
+  if (settings.passMode === "shared-shrinking") {
+    budgetTier = Math.min(budgetTier + 1, settings.passBudgetSeq.length - 1);
+    passBudget = settings.passBudgetSeq[budgetTier];
+  } else if (settings.passMode === "shared-fixed") {
+    passBudget = settings.passBudgetFixed;
+  }
+}
 
 function bankNoteText() {
-  const sessionsLeft = Math.floor(
-    totalRemaining() / (DRAW.warm + DRAW.deep + DRAW.deepest),
+  const per = Math.max(
+    1,
+    settings.draw.warm + settings.draw.deep + settings.draw.deepest,
   );
+  const sessionsLeft = Math.floor(totalRemaining() / per);
   if (state.sessions === 0)
     return `${BANK.warm.length + BANK.deep.length + BANK.deepest.length} questions in the bank — enough for about ${Math.floor((BANK.warm.length + BANK.deep.length + BANK.deepest.length) / 12)} no-repeat sessions.`;
   return `${totalRemaining()} unseen questions left — about ${sessionsLeft} more no-repeat session${sessionsLeft === 1 ? "" : "s"} before any recycle.`;
@@ -184,9 +399,7 @@ function validate() {
 function addName() {
   const v = $("nameInput").value.trim();
   if (!v) return;
-  if (state.people.length >= 10) {
-    return;
-  }
+  if (state.people.length >= 10) return;
   state.people.push(v);
   $("nameInput").value = "";
   saveState();
@@ -203,6 +416,9 @@ function show(v) {
     $(x).classList.toggle("hidden", x !== v),
   );
 }
+function inPlay() {
+  return !$("play").classList.contains("hidden");
+}
 function setTierTheme(t) {
   document.body.dataset.tier = String(t + 1);
 }
@@ -212,44 +428,89 @@ function newOrder() {
   order = shuffle(state.people);
   renderOrder();
 }
+function effFormat() {
+  if (settings.format === "pairs-all") return "pairs";
+  if (settings.format === "pairs-deepest")
+    return cards[pos] && cards[pos].tier === "deepest"
+      ? "pairs"
+      : "round-robin";
+  return settings.format; // round-robin | single
+}
+function makePairs(arr) {
+  const a = arr.slice();
+  const out = [];
+  while (a.length) {
+    if (a.length === 3) out.push(a.splice(0, 3));
+    else if (a.length === 1) out[out.length - 1].push(a.shift());
+    else out.push(a.splice(0, 2));
+  }
+  return out;
+}
+function whoEl(n, num) {
+  const el = document.createElement("span");
+  el.className = "who" + (cardPassers.includes(n) ? " passed" : "");
+  const v = score[n] || { strikes: 0 };
+  const strikes =
+    settings.shaming && v.strikes
+      ? ` <span class="strike">${"✗".repeat(v.strikes)}</span>`
+      : "";
+  const badge = num != null ? `<span class="i">${num}</span>` : "";
+  el.innerHTML = `${badge}${n}${strikes}`;
+  if (settings.passMode !== "none") {
+    el.onclick = () => openDare(n);
+    el.title = `${n}: tap to pass`;
+  }
+  return el;
+}
 function renderOrder() {
   const seq = $("seq");
   seq.innerHTML = "";
-  order.forEach((n, i) => {
-    const el = document.createElement("span");
-    let classes = "who";
-    if (cardPassers.includes(n)) {
-      classes += " passed";
-    }
-    el.className = classes;
-    const v = score[n] || { strikes: 0 };
-    const strikes = v.strikes
-      ? ` <span class="strike">${"✗".repeat(v.strikes)}</span>`
-      : "";
-    el.innerHTML = `<span class="i">${i + 1}</span>${n}${strikes}`;
-    el.title = `${n}: tap to pass (draw a dare). The circle shares ${passBudget} pass${passBudget === 1 ? "" : "es"} before the meter resets.`;
-    el.onclick = () => openDare(n);
-    seq.appendChild(el);
-  });
+  const fmt = effFormat();
+  if (fmt === "pairs") {
+    $("orderCap").textContent = "Pair up — answer one-on-one, then share back";
+    makePairs(order).forEach((p) => {
+      const wrap = document.createElement("div");
+      wrap.className = "pair";
+      p.forEach((n) => wrap.appendChild(whoEl(n, null)));
+      seq.appendChild(wrap);
+    });
+  } else if (fmt === "single") {
+    $("orderCap").textContent = "This card's answerer";
+    seq.appendChild(whoEl(order[0], null));
+  } else {
+    $("orderCap").textContent = "Answer in this order";
+    order.forEach((n, i) => seq.appendChild(whoEl(n, i + 1)));
+  }
+  $("orderHint").textContent =
+    settings.passMode === "none"
+      ? "Everyone answers this round — no passing."
+      : !settings.daresEnabled
+        ? "Don't want to answer? Tap your name to pass — no penalty."
+        : "Chickening out? Tap your name — you'll draw a dare instead.";
+}
+function fuseText() {
+  if (settings.passMode === "free") return "🕊️ passing is free — no penalty";
+  if (settings.passMode === "none") return "passing is off this round";
+  if (settings.passMode === "shared-shrinking" || settings.passMode === "shared-fixed")
+    return passBudget > 0
+      ? `🔥 ${passBudget} shared pass${passBudget === 1 ? "" : "es"} left${settings.meterResetOnBudgetOut ? " before reset" : ""}`
+      : `⚠️ no passes left${settings.meterResetOnBudgetOut ? " — the next pass wipes the meter" : ""}`;
+  return "";
 }
 function renderMeter(broke) {
-  const lv = levelFor(streak);
-  $("meterLevel").textContent = lv.name;
-  // fuse: how many shared passes remain before the next reset
-  const fuse =
-    passBudget > 0
-      ? `🔥 ${passBudget} shared pass${passBudget === 1 ? "" : "es"} left before reset`
-      : `⚠️ no passes left — the next pass wipes the meter`;
+  if (!settings.meterEnabled) return;
+  const ladder = getLadder();
+  $("meterLevel").textContent = levelFor(streak).name;
   const climb =
     streak > 0
-      ? `${streak} climbed · ${Math.max(0, WIN_AT - streak)} to Unbreakable · `
+      ? `${streak} climbed · ${Math.max(0, settings.winAt - streak)} to ${topLevelName()} · `
       : "";
-  $("meterStreak").textContent = climb + fuse;
-  const fillPct = Math.min(100, (streak / WIN_AT) * 100);
+  $("meterStreak").textContent = climb + fuseText();
+  const fillPct = Math.min(100, (streak / settings.winAt) * 100);
   $("meterFill").style.clipPath = `inset(0 ${100 - fillPct}% 0 0)`;
   const rungs = $("meterRungs");
   rungs.innerHTML = "";
-  LADDER.forEach((l) => {
+  ladder.forEach((l) => {
     const s = document.createElement("span");
     s.textContent = l.name;
     if (streak >= l.at && l.at > 0) s.className = "hit";
@@ -277,14 +538,28 @@ function toast(big, sub, kind) {
 function renderScorebar() {
   const sb = $("scorebar");
   const entries = Object.entries(score);
+  if (!settings.shaming) {
+    const totalDares = entries.reduce((a, [, v]) => a + v.dares, 0);
+    const totalPasses = entries.reduce((a, [, v]) => a + v.passes, 0);
+    if (totalPasses === 0 && totalDares === 0) {
+      sb.innerHTML = `<span class="pill">Everyone's in — no passes yet 🌱</span>`;
+      return;
+    }
+    let html = "";
+    if (totalPasses)
+      html += `<span class="pill">🕊️ passes: <b>${totalPasses}</b></span>`;
+    if (totalDares)
+      html += `<span class="pill">🎲 dares: <b>${totalDares}</b></span>`;
+    sb.innerHTML = html;
+    return;
+  }
   const totalStrikes = entries.reduce((a, [, v]) => a + v.strikes, 0);
   const totalDares = entries.reduce((a, [, v]) => a + v.dares, 0);
   if (totalStrikes === 0 && totalDares === 0) {
     sb.innerHTML = `<span class="pill">No passes yet — everyone's all in 🔥</span>`;
     return;
   }
-  // current chicken leader
-  let max = Math.max(...entries.map(([, v]) => v.strikes));
+  const max = Math.max(...entries.map(([, v]) => v.strikes));
   const leaders = entries
     .filter(([, v]) => v.strikes === max && max > 0)
     .map(([n]) => n);
@@ -294,53 +569,63 @@ function renderScorebar() {
     html += `<span class="pill crown">👑 biggest chicken: <b>${leaders.join(" & ")}</b> (${max})</span>`;
   sb.innerHTML = html;
 }
+function syncUIVisibility() {
+  $("meter").classList.toggle("hidden", !settings.meterEnabled);
+  $("scorebar").classList.toggle("hidden", !settings.shaming);
+}
 
-/* ============ Dare flow ============ */
+/* ============ Dare / pass flow ============ */
 function openDare(name) {
+  if (settings.passMode === "none") return;
   activePasser = name;
   const v = score[name];
   if (v) v.passes++;
   if (!cardPassers.includes(name)) cardPassers.push(name);
 
-  // Shared budget: spend one. The meter keeps climbing UNTIL the budget hits zero — then it wipes.
-  if (passBudget > 0) {
-    passBudget--;
-    lastPassUndoable = true; // didn't trigger a reset, so it can be cancelled cleanly
-    if (passBudget === 0) {
-      toast(
-        `⚠️ Last shared pass spent`,
-        `One more pass and the climb resets.`,
-        "bad",
-      );
-    }
+  if (settings.passMode === "free") {
+    lastPassUndoable = true; // nothing to refund, but cancel can still un-record
     renderMeter(false);
-  } else {
-    // budget already empty → THIS pass wipes the meter and refills a smaller budget
+  } else if (passBudget > 0) {
+    passBudget--;
+    lastPassUndoable = true;
+    if (passBudget === 0 && settings.meterResetOnBudgetOut)
+      toast(`⚠️ Last shared pass spent`, `One more pass and the climb resets.`, "bad");
+    renderMeter(false);
+  } else if (settings.meterResetOnBudgetOut) {
+    // budget empty → this pass wipes the meter and refills a smaller budget
     lastPassUndoable = false;
     const lost = levelFor(streak).name;
     resets++;
     streak = 0;
-    budgetTier = Math.min(budgetTier + 1, BUDGET_SEQ.length - 1);
-    passBudget = BUDGET_SEQ[budgetTier];
+    refillBudget();
     renderMeter(true);
     const refillMsg =
       passBudget > 0
-        ? `Budget refills to just ${passBudget}.`
+        ? `Budget refills to ${passBudget}.`
         : `No cushion left — every pass now resets instantly.`;
     toast(
       `💔 ${name} wiped the meter`,
-      `The circle falls from ${lost} back to Strangers. ${refillMsg}`,
+      `The circle falls from ${lost} back to ${getLadder()[0].name}. ${refillMsg}`,
       "bad",
     );
+  } else {
+    // shared budget spent but resets are off — passing stays free
+    lastPassUndoable = true;
+    renderMeter(false);
   }
 
-  $("dareWho").textContent = cardPassers.join(" & ");
-  // open in the CHOICE phase — group authors first, app is the fallback
-  $("dareChoice").classList.remove("hidden");
-  $("dareDo").classList.add("hidden");
-  $("dareText").textContent = "";
-  $("darePanel").classList.remove("hidden");
-  $("darePanel").scrollIntoView({ behavior: "smooth", block: "nearest" });
+  if (settings.daresEnabled) {
+    $("dareWho").textContent = cardPassers.join(" & ");
+    $("dareChoice").classList.remove("hidden");
+    $("dareDo").classList.add("hidden");
+    $("dareFail").classList.toggle("hidden", !settings.shaming);
+    $("dareText").textContent = "";
+    $("darePanel").classList.remove("hidden");
+    $("darePanel").scrollIntoView({ behavior: "smooth", block: "nearest" });
+  } else {
+    closeDare();
+    toast(`🕊️ ${name} passed`, `No pressure — onto the next.`, null);
+  }
   renderOrder();
   renderScorebar();
 }
@@ -348,9 +633,9 @@ function showDarePhase(text) {
   $("dareText").textContent = text;
   $("dareChoice").classList.add("hidden");
   $("dareDo").classList.remove("hidden");
+  $("dareFail").classList.toggle("hidden", !settings.shaming);
 }
 function chooseGroupDare() {
-  // group invents it aloud — nothing for the app to show but a prompt
   const who = $("dareWho").textContent;
   showDarePhase(
     `Group: invent a dare for ${who} — make it fit the moment. When they've done it, mark it below.`,
@@ -379,8 +664,6 @@ function dareFail() {
 function renderCard() {
   const c = cards[pos];
   const ti = tierIndex(c.tier);
-  // a card counts as "used" only once it's actually shown — so stopping early spares the rest
-  // (bonus cards aren't from the bank, so they never touch the used list)
   if (!c.bonus && !state.used[c.tier].includes(c.q)) {
     state.used[c.tier].push(c.q);
     saveState();
@@ -399,19 +682,24 @@ function renderCard() {
   q.style.animation = "none";
   void q.offsetWidth;
   q.style.animation = "";
-  // reset + load Mandarin translation for this card (English stays primary)
+  // translation (English stays primary; optionally pre-opened)
   const zh = $("qzh"),
     lb = $("langBtn");
   $("qzhText").textContent = ZH[c.q] || "（暫無翻譯）";
-  zh.classList.remove("show");
-  lb.classList.remove("on");
-  lb.textContent = "中文翻譯";
-  lb.setAttribute("aria-expanded", "false");
+  const showZh = settings.showZhByDefault;
+  zh.classList.toggle("show", showZh);
+  lb.classList.toggle("on", showZh);
+  lb.textContent = showZh ? "隱藏中文" : "中文翻譯";
+  lb.setAttribute("aria-expanded", showZh ? "true" : "false");
   newOrder();
   renderScorebar();
   renderMeter(false);
+  syncUIVisibility();
   cardPassers = [];
   lastPassUndoable = false;
+  reflectPending = settings.listenerBeat && !c.bonus;
+  $("nextBtn").textContent = "Everyone's answered — next card";
+  $("listenerNote").classList.add("hidden");
   $("darePanel").classList.add("hidden");
   activePasser = null;
   $("dareChoice").classList.remove("hidden");
@@ -420,38 +708,50 @@ function renderCard() {
   show("play");
 }
 
+function showListenerBeat() {
+  $("listenerNote").classList.remove("hidden");
+  $("nextBtn").textContent = "Reflected — next card";
+  toast(
+    "🪞 Reflect back",
+    "Each person: say one thing you heard from someone tonight.",
+    null,
+  );
+}
+
 function advance() {
-  // every card the circle gets through grows the climb; the meter only wipes when the shared budget runs out (handled on pass)
-  const before = levelFor(streak);
-  streak++;
-  if (streak > bestStreak) bestStreak = streak;
-  const after = levelFor(streak);
-  if (UNLOCK_LEVELS[streak]) {
-    const b = bonusCard();
-    cards.splice(pos + 1, 0, {
-      q: b,
-      tier: cards[pos] ? cards[pos].tier : "deep",
-      bonus: true,
-    });
-    toast(
-      `🎁 Bonus unlocked`,
-      `Reaching ${after.name} earns the circle a bonus connection card — up next.`,
-      null,
-    );
-  } else if (after.name !== before.name && streak < WIN_AT) {
-    toast(
-      `✨ ${after.name}`,
-      `The circle keeps climbing — ${streak} cards in.`,
-      null,
-    );
+  if (reflectPending) {
+    reflectPending = false;
+    showListenerBeat();
+    return;
   }
-  if (streak === WIN_AT && !wonThisSession) {
-    wonThisSession = true;
-    toast(
-      `👑 UNBREAKABLE`,
-      `You reached the top of the ladder together. The circle wins.`,
-      "win",
-    );
+  if (settings.meterEnabled) {
+    const before = levelFor(streak);
+    streak++;
+    if (streak > bestStreak) bestStreak = streak;
+    const after = levelFor(streak);
+    if (settings.bonusEnabled && settings.unlockLevels[streak] && streak < settings.winAt) {
+      const b = bonusCard();
+      cards.splice(pos + 1, 0, {
+        q: b,
+        tier: cards[pos] ? cards[pos].tier : "deep",
+        bonus: true,
+      });
+      toast(
+        `🎁 Bonus unlocked`,
+        `Reaching ${after.name} earns the circle a bonus connection card — up next.`,
+        null,
+      );
+    } else if (after.name !== before.name && streak < settings.winAt) {
+      toast(`✨ ${after.name}`, `The circle keeps climbing — ${streak} cards in.`, null);
+    }
+    if (streak === settings.winAt && !wonThisSession) {
+      wonThisSession = true;
+      toast(
+        `👑 ${topLevelName().toUpperCase()}`,
+        `You reached the top of the ladder together. The circle wins.`,
+        "win",
+      );
+    }
   }
   const cur = cards[pos].tier;
   pos++;
@@ -459,7 +759,7 @@ function advance() {
     finishSession();
     return;
   }
-  if (cards[pos].tier !== cur && !cards[pos].bonus) {
+  if (cards[pos].tier !== cur && !cards[pos].bonus && SEAMS[tierIndex(cards[pos].tier)]) {
     const ti = tierIndex(cards[pos].tier);
     const s = SEAMS[ti];
     setTierTheme(ti);
@@ -470,27 +770,35 @@ function advance() {
   } else renderCard();
 }
 
+function buildDeck() {
+  const d = [];
+  if (settings.tiers.warm && settings.draw.warm > 0)
+    d.push(...drawTier("warm", settings.draw.warm).map((q) => ({ q, tier: "warm" })));
+  if (settings.tiers.deep && settings.draw.deep > 0)
+    d.push(...drawTier("deep", settings.draw.deep).map((q) => ({ q, tier: "deep" })));
+  if (settings.tiers.deepest && settings.draw.deepest > 0)
+    d.push(...drawTier("deepest", settings.draw.deepest).map((q) => ({ q, tier: "deepest" })));
+  if (d.length === 0)
+    d.push(...drawTier("warm", 3).map((q) => ({ q, tier: "warm" })));
+  return d;
+}
+
 function startSession() {
-  cards = [
-    ...drawTier("warm", DRAW.warm).map((q) => ({ q, tier: "warm" })),
-    ...drawTier("deep", DRAW.deep).map((q) => ({ q, tier: "deep" })),
-    ...drawTier("deepest", DRAW.deepest).map((q) => ({ q, tier: "deepest" })),
-  ];
+  cards = buildDeck();
   state.sessions++;
   saveState();
   pos = 0;
   resetScore();
   streak = 0;
   bestStreak = 0;
-  curLevel = 0;
   wonThisSession = false;
   cardPassers = [];
   lastPassUndoable = false;
-  budgetTier = 0;
-  passBudget = BUDGET_SEQ[0];
+  initBudget();
   resets = 0;
   darePool = { warm: [], deep: [], deepest: [] };
   bonusPool = [];
+  $("redrawBtn").classList.add("hidden");
   $("sesstag").textContent = `Session ${state.sessions}`;
   renderCard();
 }
@@ -506,12 +814,32 @@ function renderBoard() {
     board.innerHTML = "";
     return;
   }
+  board.innerHTML = "";
+  if (!settings.shaming) {
+    // gentle board — celebrate engagement, no crown
+    const ranked = entries
+      .slice()
+      .sort((a, b) => a[1].passes - b[1].passes || b[1].dares - a[1].dares);
+    ranked.forEach(([n, v], i) => {
+      const li = document.createElement("li");
+      const clean = v.passes === 0;
+      if (clean) li.className = "clean";
+      li.style.animationDelay = i * 50 + "ms";
+      const tag = clean ? "🛡️ " : "";
+      const detail = clean
+        ? "answered everything"
+        : `${v.passes} pass${v.passes === 1 ? "" : "es"}${v.dares ? ` · ${v.dares} dare${v.dares === 1 ? "" : "s"}` : ""}`;
+      li.innerHTML = `<span class="nm">${tag}${n}</span><span class="sc">${detail}</span>`;
+      board.appendChild(li);
+    });
+    board.classList.remove("hidden");
+    return;
+  }
   // rank by strikes desc, then by fewest dares (more dares done = braver)
   const ranked = entries
     .slice()
     .sort((a, b) => b[1].strikes - a[1].strikes || a[1].dares - b[1].dares);
   const maxStrikes = Math.max(...entries.map(([, v]) => v.strikes));
-  board.innerHTML = "";
   ranked.forEach(([n, v], i) => {
     const li = document.createElement("li");
     li.style.animationDelay = i * 50 + "ms";
@@ -530,29 +858,37 @@ function renderBoard() {
 }
 
 function closenessLine() {
+  if (!settings.meterEnabled)
+    return "No meter tonight — just the conversation. Hope it landed somewhere good.";
   if (wonThisSession)
-    return "🏆 You reached UNBREAKABLE — the circle climbed all the way to the top together. That's the perfect run.";
+    return `🏆 You reached ${topLevelName().toUpperCase()} — the circle climbed all the way to the top together. That's the perfect run.`;
   const lv = levelFor(bestStreak).name;
   if (bestStreak === 0)
     return "The meter never got going this time. Something to chase next round.";
   const resetNote =
     resets > 0
       ? ` Meter wiped ${resets} time${resets === 1 ? "" : "s"}.`
-      : " And you never burned through the budget — clean climb.";
+      : settings.meterResetOnBudgetOut
+        ? " And you never burned through the budget — clean climb."
+        : "";
   return (
-    `Your circle reached ${lv} (best climb: ${bestStreak} card${bestStreak === 1 ? "" : "s"}${bestStreak < WIN_AT ? `, ${WIN_AT - bestStreak} short of Unbreakable` : ""}).` +
+    `Your circle reached ${lv} (best climb: ${bestStreak} card${bestStreak === 1 ? "" : "s"}${bestStreak < settings.winAt ? `, ${settings.winAt - bestStreak} short of ${topLevelName()}` : ""}).` +
     resetNote
   );
+}
+function endTail() {
+  if (settings.shaming) return chickenLine(biggestChicken());
+  if (settings.positiveAward)
+    return "As a group, name tonight's bravest share and best listener — say it out loud. 🌟";
+  return "";
 }
 
 function finishSession() {
   setTierTheme(2);
   $("endKicker").textContent = `Session ${state.sessions} complete`;
-  $("endTitle").textContent = wonThisSession
-    ? "Unbreakable."
-    : "That's the climb.";
-  $("endBody").textContent =
-    closenessLine() + " " + chickenLine(biggestChicken());
+  $("endTitle").textContent =
+    settings.meterEnabled && wonThisSession ? "Unbreakable." : "That's the climb.";
+  $("endBody").textContent = (closenessLine() + " " + endTail()).trim();
   $("endBank").textContent = bankNoteText();
   renderBoard();
   show("end");
@@ -560,14 +896,11 @@ function finishSession() {
 
 function endEarly() {
   const seen = pos + 1;
-  const left = cards.length - seen;
   $("endKicker").textContent = `Session ${state.sessions} · ended early`;
   $("endTitle").textContent = "You stopped where you needed to.";
   $("endBody").textContent =
     `You went through ${seen} card${seen === 1 ? "" : "s"} before stopping; the rest stay unseen for next time. ` +
-    closenessLine() +
-    " " +
-    chickenLine(biggestChicken());
+    (closenessLine() + " " + endTail()).trim();
   $("endBank").textContent = bankNoteText();
   renderBoard();
   show("end");
@@ -587,11 +920,131 @@ function chickenLine(c) {
   return `${c.names.join(" & ")} wore the crown with ${c.count} strike${c.count === 1 ? "" : "s"}. 🐔`;
 }
 
+/* ============ Settings drawer ============ */
+function openSettings() {
+  renderSettings();
+  $("settingsBackdrop").classList.add("open");
+  $("settingsDrawer").classList.add("open");
+  $("settingsDrawer").setAttribute("aria-hidden", "false");
+}
+function closeSettings() {
+  $("settingsBackdrop").classList.remove("open");
+  $("settingsDrawer").classList.remove("open");
+  $("settingsDrawer").setAttribute("aria-hidden", "true");
+}
+function buildControl(row) {
+  const val = getKey(settings, row.key);
+  if (row.type === "toggle") {
+    const b = document.createElement("button");
+    b.className = "toggle" + (val ? " on" : "");
+    b.textContent = val ? "On" : "Off";
+    b.onclick = () => onSettingChange(row.key, !getKey(settings, row.key));
+    return b;
+  }
+  if (row.type === "seg") {
+    const w = document.createElement("div");
+    w.className = "seg";
+    row.options.forEach(([v, lab]) => {
+      const b = document.createElement("button");
+      if (val === v) b.className = "on";
+      b.textContent = lab;
+      b.onclick = () => onSettingChange(row.key, v);
+      w.appendChild(b);
+    });
+    return w;
+  }
+  // stepper
+  const w = document.createElement("div");
+  w.className = "stepper";
+  const minus = document.createElement("button");
+  minus.textContent = "−";
+  minus.onclick = () =>
+    onSettingChange(row.key, Math.max(row.min, getKey(settings, row.key) - 1));
+  const cur = document.createElement("span");
+  cur.className = "val";
+  cur.textContent = val;
+  const plus = document.createElement("button");
+  plus.textContent = "+";
+  plus.onclick = () =>
+    onSettingChange(row.key, Math.min(row.max, getKey(settings, row.key) + 1));
+  w.append(minus, cur, plus);
+  return w;
+}
+function renderSettings() {
+  const modes = $("settingsModes");
+  modes.innerHTML = "";
+  MODE_LIST.forEach((m) => {
+    const b = document.createElement("button");
+    b.className = "mode-btn" + (settings.mode === m.id ? " on" : "");
+    b.textContent = m.name;
+    b.onclick = () => applyMode(m.id);
+    modes.appendChild(b);
+  });
+  if (settings.mode === "custom") {
+    const b = document.createElement("button");
+    b.className = "mode-btn on";
+    b.textContent = "Custom";
+    b.disabled = true;
+    modes.appendChild(b);
+  }
+  const body = $("settingsBody");
+  body.innerHTML = "";
+  SETTINGS_SCHEMA.forEach((group) => {
+    const g = document.createElement("div");
+    g.className = "setting-group";
+    const h = document.createElement("h4");
+    h.textContent = group.title;
+    g.appendChild(h);
+    group.rows.forEach((row) => {
+      const r = document.createElement("div");
+      r.className = "setting-row";
+      const lab = document.createElement("div");
+      lab.className = "label";
+      lab.textContent = row.label;
+      r.appendChild(lab);
+      r.appendChild(buildControl(row));
+      g.appendChild(r);
+    });
+    body.appendChild(g);
+  });
+}
+function applyMode(name) {
+  settings = settingsForMode(name);
+  state.settings = settings;
+  if (inPlay()) $("redrawBtn").classList.remove("hidden");
+  applySettings();
+}
+function onSettingChange(key, val) {
+  setKey(settings, key, val);
+  settings.mode = "custom";
+  state.settings = settings;
+  if (inPlay() && /^draw\.|^tiers\.|^gentlePrompts$/.test(key))
+    $("redrawBtn").classList.remove("hidden");
+  applySettings();
+}
+function applySettings() {
+  saveState();
+  syncUIVisibility();
+  renderMeter(false);
+  if (inPlay()) renderOrder();
+  renderScorebar();
+  validate();
+  renderSettings();
+}
+function redrawRemaining() {
+  const seen = cards.slice(0, pos + 1);
+  cards = seen.concat(buildDeck());
+  $("redrawBtn").classList.add("hidden");
+  $("counter").textContent = `${pos + 1} / ${cards.length}`;
+  $("barFill").style.transform = `scaleX(${(pos + 1) / cards.length})`;
+  toast("🔄 Deck redrawn", "Upcoming cards now match your settings.", null);
+}
+
 /* ============ Buttons ============ */
 $("startBtn").onclick = startSession;
 $("dareGroup").onclick = chooseGroupDare;
 $("dareApp").onclick = chooseAppDare;
-$("dareDeck").onclick = () => showDarePhase(dareFor(cards[pos].tier)); // fallback from the group prompt
+$("dareDeck").onclick = () => showDarePhase(dareFor(cards[pos].tier));
 $("dareDid").onclick = dareDid;
 $("dareFail").onclick = dareFail;
 $("dareCancel").onclick = () => {
@@ -600,12 +1053,14 @@ $("dareCancel").onclick = () => {
     if (score[n].passes > 0) score[n].passes--;
     const i = cardPassers.indexOf(n);
     if (i >= 0) cardPassers.splice(i, 1);
-    if (lastPassUndoable) {
-      // this pass only spent budget (no reset) — give the shared pass back
-      passBudget = Math.min(BUDGET_SEQ[budgetTier], passBudget + 1);
-      renderMeter(false);
+    if (lastPassUndoable && (settings.passMode === "shared-shrinking" || settings.passMode === "shared-fixed")) {
+      const cap =
+        settings.passMode === "shared-shrinking"
+          ? settings.passBudgetSeq[budgetTier]
+          : settings.passBudgetFixed;
+      passBudget = Math.min(cap, passBudget + 1);
     }
-    // if the pass had triggered a wipe, that stays — the climb was already lost. (lastPassUndoable=false)
+    renderMeter(false);
   }
   lastPassUndoable = false;
   closeDare();
@@ -629,7 +1084,6 @@ $("seamEndBtn").onclick = () => {
     )
   )
     return;
-  // on a seam the next card hasn't been shown yet, so back pos up by one for an accurate "seen" count
   pos = Math.max(0, pos - 1);
   endEarly();
 };
@@ -656,22 +1110,34 @@ $("resetBtn").onclick = async () => {
     )
   )
     return;
-  state = JSON.parse(JSON.stringify(blank));
+  state = deepClone(blank);
+  settings = settingsForMode("classic");
+  state.settings = settings;
   await saveState();
   $("sesstag").textContent = "";
+  syncUIVisibility();
   renderNames();
   show("setup");
 };
+$("gearBtn").onclick = openSettings;
+$("settingsClose").onclick = closeSettings;
+$("settingsBackdrop").onclick = closeSettings;
+$("redrawBtn").onclick = redrawRemaining;
+document.addEventListener("keydown", (e) => {
+  if (e.key === "Escape") closeSettings();
+});
 
 /* ============ Boot ============ */
 (async () => {
   state = await loadState();
-  if (!state.used) state.used = JSON.parse(JSON.stringify(blank.used));
+  if (!state.used) state.used = deepClone(blank.used);
+  settings = mergeSettings(DEFAULT_SETTINGS, state.settings);
+  state.settings = settings;
   renderNames();
+  syncUIVisibility();
   if (state.sessions > 0) {
     $("setupTitle").textContent = "Welcome back.";
-    $("setupLead").textContent =
-      `You've played ${state.sessions} session${state.sessions > 1 ? "s" : ""}. Session ${state.sessions + 1} starts light again — with questions you haven't seen yet — and climbs to honest.`;
+    $("setupLead").textContent = `You've played ${state.sessions} session${state.sessions > 1 ? "s" : ""}. Session ${state.sessions + 1} starts light again — with questions you haven't seen yet — and climbs to honest.`;
   }
   show("setup");
 })();

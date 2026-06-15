@@ -11,7 +11,10 @@
 <div class="wrap">
   <header>
     <div class="logo">Clos<span>er</span></div>
-    <div class="sesstag" id="sesstag">&nbsp;</div>
+    <div class="headright">
+      <div class="sesstag" id="sesstag">&nbsp;</div>
+      <button class="gear" id="gearBtn" aria-label="Open settings" title="Settings">⚙</button>
+    </div>
   </header>
 
   <!-- SETUP -->
@@ -60,9 +63,9 @@
     <button class="langtoggle" id="langBtn" aria-expanded="false">中文翻譯</button>
     <div class="qzh" id="qzh"><div class="qzh-inner" id="qzhText" lang="zh-Hant"></div></div>
     <div class="order">
-      <div class="cap">Answer in this order</div>
+      <div class="cap" id="orderCap">Answer in this order</div>
       <div class="seq" id="seq"></div>
-      <div class="hint">Chickening out? Tap your name — you'll draw a dare instead.</div>
+      <div class="hint" id="orderHint">Chickening out? Tap your name — you'll draw a dare instead.</div>
     </div>
     <div class="dare hidden" id="darePanel">
       <div class="cap">Pass · <span class="who-passed" id="dareWho"></span> ducked the question</div>
@@ -85,6 +88,7 @@
         </div>
       </div>
     </div>
+    <p class="listener-note hidden" id="listenerNote">🪞 Before the next card — each person, reflect back one thing you heard.</p>
     <div class="controls">
       <button class="btn" id="nextBtn">Everyone's answered — next card</button>
       <button class="btn ghost sm" id="reshuffleBtn">Reshuffle order</button>
@@ -121,6 +125,18 @@
     Inspired by Aron et al. (1997). Questions original. <button class="reset" id="resetBtn">Reset all progress</button>
   </footer>
 </div>
+
+<div class="drawer-backdrop" id="settingsBackdrop"></div>
+<aside class="drawer" id="settingsDrawer" aria-label="Game settings" aria-hidden="true">
+  <div class="drawer-head">
+    <div class="drawer-title">Game settings</div>
+    <button class="drawer-close" id="settingsClose" aria-label="Close settings">×</button>
+  </div>
+  <p class="drawer-note">Pick a mode, or fine-tune anything — changes apply live, even mid-game.</p>
+  <div class="modes" id="settingsModes"></div>
+  <div id="settingsBody"></div>
+  <button class="btn ghost sm hidden" id="redrawBtn" style="margin-top:16px">Redraw remaining cards</button>
+</aside>
 
 <div class="toast" id="toast"><div class="big" id="toastBig"></div><div class="sub" id="toastSub"></div></div>
 
