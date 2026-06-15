@@ -68,8 +68,8 @@
   .who{display:inline-flex;align-items:center;gap:8px;padding:7px 13px;border-radius:999px;border:1px solid var(--line);font-size:.98rem;transition:.25s;cursor:pointer}
   .who:hover{border-color:var(--accent);background:rgba(255,255,255,.04)}
   .who .i{font-family:'Fraunces',serif;font-size:.78rem;color:var(--muted);font-variant-numeric:tabular-nums}
-  .who.first{border-color:var(--accent);background:rgba(255,255,255,.05)}
-  .who.first .i{color:var(--accent)}
+  .who.passed{border-color:var(--accent);background:rgba(255,255,255,.1);font-weight:500}
+  .who.passed .i{color:var(--accent)}
   .who.done{opacity:.4;text-decoration:line-through}
   .who .strike{color:var(--t3);font-size:.82rem;letter-spacing:1px}
   .order .hint{font-size:.82rem;color:var(--muted);margin-top:12px;font-style:italic}

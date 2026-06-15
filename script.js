@@ -205,7 +205,11 @@ function renderOrder() {
   seq.innerHTML = "";
   order.forEach((n, i) => {
     const el = document.createElement("span");
-    el.className = "who" + (i === 0 ? " first" : "");
+    let classes = "who";
+    if (cardPassers.includes(n)) {
+      classes += " passed";
+    }
+    el.className = classes;
     const v = score[n] || { strikes: 0 };
     const strikes = v.strikes
       ? ` <span class="strike">${"✗".repeat(v.strikes)}</span>`
@@ -317,7 +321,7 @@ function openDare(name) {
     );
   }
 
-  $("dareWho").textContent = name;
+  $("dareWho").textContent = cardPassers.join(" & ");
   // open in the CHOICE phase — group authors first, app is the fallback
   $("dareChoice").classList.remove("hidden");
   $("dareDo").classList.add("hidden");
