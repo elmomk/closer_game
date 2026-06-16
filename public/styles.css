@@ -4,6 +4,7 @@
     --t1:#6f93a6; --t2:#c98b6b; --t3:#b1607a;
     --line:rgba(243,237,227,.14); --accent:var(--t1);
     --ease-out:cubic-bezier(.23,1,.32,1);
+    --ease-drawer:cubic-bezier(.32,.72,0,1);
   }
   *{box-sizing:border-box;margin:0;padding:0}
   html,body{height:100%}
@@ -31,14 +32,14 @@
   .chip{display:inline-flex;align-items:center;gap:7px;background:rgba(255,255,255,.06);border:1px solid var(--line);border-radius:999px;padding:6px 12px;font-size:.98rem}
   .chip button{background:none;border:0;color:var(--muted);cursor:pointer;font-size:1.05rem;line-height:1;padding:0;transition:color .2s ease,transform .12s var(--ease-out)}
   @media (hover:hover) and (pointer:fine){.chip button:hover{color:var(--ink)}}
-  .chip button:active{transform:scale(.9)}
+  .chip button:active{transform:scale(.86)}
   .addrow{display:flex;gap:8px}
   .addrow input{flex:1;background:rgba(0,0,0,.25);border:1px solid var(--line);border-radius:10px;color:var(--ink);
     font-family:'Newsreader',serif;font-size:1rem;padding:11px 14px;transition:border-color .15s ease}
   .addrow input:focus{outline:0;border-color:var(--accent)}
 
   .btn{font-family:'Fraunces',serif;font-weight:500;font-size:1.02rem;background:var(--accent);color:#10171f;
-    border:0;border-radius:999px;padding:13px 26px;cursor:pointer;transition:transform .15s var(--ease-out),filter .2s,background .9s;align-self:flex-start}
+    border:0;border-radius:999px;padding:13px 26px;cursor:pointer;transition:transform .15s var(--ease-out),filter .2s var(--ease-out),background .9s ease;align-self:flex-start}
   @media (hover:hover) and (pointer:fine){.btn:hover{transform:translateY(-1px);filter:brightness(1.06)}}
   .btn:active{transform:scale(.97)}
   .btn:disabled{opacity:.4;cursor:not-allowed;transform:none}
@@ -60,7 +61,7 @@
   .langtoggle:active{transform:scale(.96)}
   .langtoggle.on{color:var(--accent);border-color:var(--accent)}
   .qzh{display:grid;grid-template-rows:0fr;opacity:0;margin-bottom:0;
-    transition:grid-template-rows .4s var(--ease-out),opacity .3s ease,margin-bottom .3s ease}
+    transition:grid-template-rows .4s var(--ease-out),opacity .4s ease,margin-bottom .4s ease}
   .qzh.show{grid-template-rows:1fr;opacity:1;margin-bottom:22px}
   .qzh-inner{min-height:0;overflow:hidden;
     font-family:'Noto Serif TC','Fraunces',serif;font-weight:400;font-size:clamp(1.3rem,4vw,2rem);
@@ -140,6 +141,12 @@
   footer{color:var(--muted);font-size:.78rem;text-align:center;padding-top:8px;opacity:.7}
   .reset{background:none;border:0;color:var(--muted);font-family:'Newsreader',serif;font-size:.82rem;cursor:pointer;text-decoration:underline;text-underline-offset:3px}
   @media (hover:hover) and (pointer:fine){.reset:hover{color:var(--ink)}}
+  /* keyboard focus — visible only for keyboard/switch users, not pointer */
+  .btn:focus-visible,.gear:focus-visible,.chip button:focus-visible,.who:focus-visible,
+  .mode-btn:focus-visible,.toggle:focus-visible,.seg button:focus-visible,
+  .stepper button:focus-visible,.langtoggle:focus-visible,.choice-card:focus-visible,
+  .drawer-close:focus-visible,.reset:focus-visible,.addrow input:focus-visible{
+    outline:2px solid var(--accent);outline-offset:2px}
   @media (prefers-reduced-motion:reduce){
     *,*::before,*::after{animation:none!important;
       transition-property:opacity,color,background-color,border-color,box-shadow,filter!important;
@@ -157,12 +164,12 @@
   .gear:disabled{opacity:.35;cursor:not-allowed;pointer-events:none}
 
   .drawer-backdrop{position:fixed;inset:0;background:rgba(8,12,16,.55);opacity:0;pointer-events:none;
-    transition:opacity .3s var(--ease-out);z-index:60}
+    transition:opacity .42s var(--ease-drawer);z-index:60}
   .drawer-backdrop.open{opacity:1;pointer-events:auto}
 
   .drawer{position:fixed;top:0;right:0;height:100dvh;width:min(430px,92vw);background:#0f161e;
     border-left:1px solid var(--line);box-shadow:-20px 0 50px rgba(0,0,0,.5);transform:translateX(100%);
-    transition:transform .3s var(--ease-out);z-index:61;display:flex;flex-direction:column;
+    transition:transform .42s var(--ease-drawer);z-index:61;display:flex;flex-direction:column;
     overflow-y:auto;padding:22px 22px 30px;gap:2px}
   .drawer.open{transform:translateX(0)}
   .drawer-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:6px}
@@ -226,10 +233,10 @@
   .choice-card{border:1px solid var(--line);border-radius:16px;padding:20px 22px;cursor:pointer;
     transition:border-color .2s ease,background .2s ease,transform .12s var(--ease-out)}
   @media (hover:hover) and (pointer:fine){.choice-card:hover{border-color:var(--accent);background:rgba(255,255,255,.03)}}
-  .choice-card:active{transform:scale(.99)}
+  .choice-card:active{transform:scale(.98)}
   .choice-q-text{font-family:'Fraunces',serif;font-weight:400;font-size:clamp(1.25rem,3.8vw,2rem);line-height:1.28;letter-spacing:-.015em}
   .choice-q-zh{display:grid;grid-template-rows:0fr;opacity:0;
-    transition:grid-template-rows .4s var(--ease-out),opacity .3s ease,margin-top .3s ease}
+    transition:grid-template-rows .4s var(--ease-out),opacity .4s ease,margin-top .4s ease}
   .choice-q-zh.show{grid-template-rows:1fr;opacity:1;margin-top:14px}
   .choice-q-zh-inner{min-height:0;overflow:hidden;
     font-family:'Noto Serif TC','Fraunces',serif;font-size:clamp(1.1rem,3.2vw,1.7rem);
